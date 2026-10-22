@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PPR vs. S&P 500: simulador</title>
+<style>
+:root{--bg:#f3f6f4;--card:#fff;--ink:#12202b;--mute:#5a6b77;--line:#d5dfda;--sp:#0f7a5c;--ppr:#c96f1a;--aport:#8a99a5}
+@media (prefers-color-scheme:dark){:root{--bg:#0e1a22;--card:#16252f;--ink:#e8eef2;--mute:#9db0bd;--line:#2a3c48;--sp:#3fc79f;--ppr:#f0a050;--aport:#7b8d9a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.5 "Helvetica Neue",Arial,sans-serif}
+main{max-width:1080px;margin:0 auto;padding:32px 20px 56px}
+h1{font:700 34px/1.15 Georgia,serif;margin:0 0 6px}
+.sub{color:var(--mute);margin:0 0 28px}
+.grid{display:grid;grid-template-columns:340px 1fr;gap:24px}
+@media(max-width:820px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px}
+label{display:block;margin:14px 0 4px;font-size:15px;color:var(--mute)}
+input[type=number]{width:100%;padding:8px 10px;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px}
+input[type=range]{width:100%;accent-color:var(--sp)}
+output{font-weight:700;color:var(--ink)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px}
+.kpi b{display:block;font:700 28px Georgia,serif}
+.kpi span{font-size:14px;color:var(--mute)}
+.sp b{color:var(--sp)}.ppr b{color:var(--ppr)}
+svg{width:100%;height:auto;display:block}
+.lg{display:flex;gap:18px;flex-wrap:wrap;font-size:14px;color:var(--mute);margin-top:8px}
+.lg i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+table{width:100%;border-collapse:collapse;font-size:15px;margin-top:16px}
+td,th{padding:6px 8px;text-align:right;border-bottom:1px solid var(--line)}th:first-child,td:first-child{text-align:left}
+small{color:var(--mute);display:block;margin-top:20px}
+button{font:inherit;padding:6px 12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;cursor:pointer;margin-right:6px}
+button:focus-visible,input:focus-visible{outline:2px solid var(--sp);outline-offset:2px}
+</style>
+</head>
+<body>
+<main>
+<h1>PPR vs. S&amp;P 500</h1>
+<p class="sub">Mismas aportaciones, distinto destino. Cambia los datos y mira cómo se mueve el resultado.</p>
+<div class="grid">
+<section class="card" aria-label="Datos">
+<label>Aportación del primer año (MXN)<input id="p0" type="number" value="78842" min="0" step="1000"></label>
+<label>Crecimiento anual de la aportación (UDI): <output id="gO"></output><input id="g" type="range" min="0" max="10" step="0.1" value="4.8"></label>
+<label>Años de aportación: <output id="nO"></output><input id="n" type="range" min="5" max="30" step="1" value="16"></label>
+<label>Rendimiento anual del S&amp;P 500: <output id="rO"></output><input id="r" type="range" min="0" max="15" step="0.5" value="8"></label>
+<div style="margin-top:10px"><button data-r="4">4%</button><button data-r="6">6%</button><button data-r="8">8%</button><button data-r="10">10%</button></div>
+<label>Fondo del PPR al final (MXN)<input id="f" type="number" value="2009858" min="0" step="10000"></label>
+</section>
+<section>
+<div class="kpis">
+<div class="card kpi sp"><b id="kS"></b><span>S&amp;P 500 al final</span></div>
+<div class="card kpi ppr"><b id="kP"></b><span>Fondo del PPR</span></div>
+<div class="card kpi"><b id="kD"></b><span>Diferencia a favor del S&amp;P 500</span></div>
+<div class="card kpi"><b id="kI"></b><span>Rendimiento implícito del PPR (anual)</span></div>
+</div>
+<div class="card">
+<svg id="ch" viewBox="0 0 700 320" role="img" aria-label="Crecimiento del dinero por año"></svg>
+<div class="lg"><span><i style="background:var(--sp)"></i>S&amp;P 500 (escenario)</span><span><i style="background:var(--aport)"></i>Aportado acumulado</span><span><i style="background:var(--ppr)"></i>Fondo del PPR al final</span></div>
+<table><thead><tr><th>Año</th><th>Aportación</th><th>Aportado</th><th>S&amp;P 500</th></tr></thead><tbody id="tb"></tbody></table>
+</div>
+</section>
+</div>
+<small>Ilustración con supuestos. El rendimiento del S&amp;P 500 es hipotético y no está garantizado; el PPR incluye cobertura de vida e invalidez que no se refleja aquí. No incluye comisiones, impuestos al retiro ni tipo de cambio. No es asesoría de inversión.</small>
+</main>
+<script>
+const $=id=>document.getElementById(id),M=v=>"$"+Math.round(v).toLocaleString("es-MX");
+function irr(pay,fin){const n=pay.length,f=r=>pay.reduce((s,p,t)=>s+p*Math.pow(1+r,n-t),0)-fin;let a=-.5,b=.5;for(let i=0;i<80;i++){const m=(a+b)/2;f(m)>0?b=m:a=m}return(a+b)/2}
+function run(){
+const p0=+$("p0").value,g=+$("g").value/100,n=+$("n").value,r=+$("r").value/100,fp=+$("f").value;
+$("gO").textContent=(g*100).toFixed(1)+"%";$("nO").textContent=n;$("rO").textContent=(r*100).toFixed(1)+"%";
+const pay=[...Array(n)].map((_,t)=>p0*Math.pow(1+g,t));
+let bal=0,ap=0;const rows=[];
+pay.forEach((p,t)=>{bal=(bal+p)*(1+r);ap+=p;rows.push([t+1,p,ap,bal])});
+$("kS").textContent=M(bal);$("kP").textContent=M(fp);$("kD").textContent=M(bal-fp);
+$("kI").textContent=(irr(pay,fp)*100).toFixed(1)+"%";
+$("tb").innerHTML=rows.map(x=>`<tr><td>${x[0]}</td><td>${M(x[1])}</td><td>${M(x[2])}</td><td>${M(x[3])}</td></tr>`).join("");
+const W=700,H=320,L=70,B=30,mx=Math.max(bal,fp,ap)*1.05,X=i=>L+(W-L-12)*i/n,Y=v=>H-B-(H-B-12)*v/mx;
+const line=(k,c)=>`<polyline fill="none" stroke="${c}" stroke-width="3" points="${[[0,0],...rows.map((x,i)=>[i+1,x[k]])].map(q=>X(q[0])+","+Y(q[1])).join(" ")}"/>`;
+let s="";for(let i=0;i<=4;i++){const v=mx*i/4;s+=`<line x1="${L}" x2="${W-12}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/><text x="${L-8}" y="${Y(v)+4}" text-anchor="end" font-size="12" fill="var(--mute)">${(v/1e6).toFixed(1)} M</text>`}
+s+=`<text x="${W-12}" y="${H-8}" text-anchor="end" font-size="12" fill="var(--mute)">años</text>`;
+s+=line(3,"var(--sp)")+line(2,"var(--aport)")+`<circle cx="${X(n)}" cy="${Y(fp)}" r="7" fill="var(--ppr)"/>`;
+$("ch").innerHTML=s}
+document.querySelectorAll("input").forEach(e=>e.addEventListener("input",run));
+document.querySelectorAll("button").forEach(b=>b.onclick=()=>{$("r").value=b.dataset.r;run()});
+run();
+</script>
+</body>
+</html>
